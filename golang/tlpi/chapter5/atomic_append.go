@@ -44,14 +44,14 @@ func main() {
 	}
 	defer f.Close()
 	// the real deal starts here
-	if opts.Xclusive == true {
-		if _, err := f.Seek(0, os.SEEK_END); err != nil {
-			log.Fatal(err)
-		}
-	}
 	for i := 0; int64(i) < nChunks; i++ {
-		if _, err := f.Write(random_bytes); err != nil {
-			log.Fatal(err)
+		if opts.Xclusive == true {
+			if _, err := f.Seek(0, os.SEEK_END); err != nil {
+				log.Fatal(err)
+			}
+			if _, err := f.Write(random_bytes); err != nil {
+				log.Fatal(err)
+			}
 		}
 	}
 	if _, err := f.Write(leftovers); err != nil {
