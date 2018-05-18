@@ -1,5 +1,5 @@
 /*
-TODO: fill in comment
+Proggie to demonstrate the need for atomicity in append operations
 as part the the Linux Programming Interface exercises
 athanasios@akostopoulos.com
 
@@ -8,58 +8,53 @@ package main
 
 import "log"
 import "os"
-import "io"
-import "bufio"
+import "math/rand"
 import flags "github.com/jessevdk/go-flags"
 
 var opts struct {
-	Size int64 `short:"s" long:"size" description:"number of bytes to write"`
+	Size     int64 `short:"s" long:"size" description:"number of bytes to write"`
+	Xclusive bool  `short:"x" long:"xclusive" description:"screw atomic append"`
 }
 
 func main() {
-	appendFileFlags := (os.O_APPEND | os.O_WRONLY)
-	regularFileFlags := os.O_WRONLY
+	file_flags := (os.O_APPEND | os.O_WRONLY | os.O_CREATE)
+	regular_file_flags := (os.O_WRONLY | os.O_CREATE)
 	args, err := flags.ParseArgs(&opts, os.Args)
 	if err != nil {
 		log.Fatal(err)
 	}
-	if len(os.Args) != 2 {
-		log.Fatal("only one argument required")
+	if len(args) != 2 {
+		log.Print(os.Args)
+		log.Fatal("only one argument required - the filename")
 	}
-	if opts.Append == true {
-		fileFlags = (os.O_APPEND | fileFlags)
+	if opts.Xclusive == true {
+		file_flags = regular_file_flags
 	}
+	sz_buf := 1024
+	random_bytes := make([]byte, sz_buf)
+	rand.Read(random_bytes)
+	var nChunks int64
+	nChunks = opts.Size / int64(sz_buf)
+	sz_leftover := opts.Size - (int64(sz_buf) * nChunks)
+	leftovers := make([]byte, sz_leftover)
 	fname := args[1]
-	f, err := os.OpenFile(fname, fileFlags, 0666)
+	f, err := os.OpenFile(fname, file_flags, 0666)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer f.Close()
-	// saves a TON of work
-	out := io.MultiWriter(os.Stdout, f)
-	nBytes, nChunks := int64(0), int64(0)
-	r := bufio.NewReader(os.Stdin)
-	buf := make([]byte, 0, 4*1024)
-	for {
-		n, err := r.Read(buf[:cap(buf)])
-		buf = buf[:n]
-		if n == 0 {
-			if err == nil {
-				continue
-			}
-			if err == io.EOF {
-				break
-			}
-			log.Fatal(err)
-		}
-		nChunks++
-		nBytes += int64(len(buf))
-		if _, err := out.Write(buf); err != nil {
-			log.Fatal(err)
-		}
-		if err != nil && err != io.EOF {
+	// the real deal starts here
+	if opts.Xclusive == true {
+		if _, err := f.Seek(0, os.SEEK_END); err != nil {
 			log.Fatal(err)
 		}
 	}
-	log.Println("Bytes:", nBytes, "Chunks:", nChunks)
+	for i := 0; int64(i) < nChunks; i++ {
+		if _, err := f.Write(random_bytes); err != nil {
+			log.Fatal(err)
+		}
+	}
+	if _, err := f.Write(leftovers); err != nil {
+		log.Fatal(err)
+	}
 }
