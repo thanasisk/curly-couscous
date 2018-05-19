@@ -22,7 +22,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if len(os.Args) != 2 {
+	if len(args) != 2 {
 		log.Fatal("only one argument required")
 	}
 	if opts.Append == true {
